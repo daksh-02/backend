@@ -28,7 +28,7 @@ const genrateAccessAndRefreshTokens = async (userId) => {
 
 const loginUser = asyncHandler(async (req, res) => {
   const { email, username, password } = req.body;
-console.log("Hey its me goku");
+  console.log("Hey its me goku");
   if (!email && !username) {
     throw new ApiError(400, "username or password is required");
   }
@@ -57,7 +57,12 @@ console.log("Hey its me goku");
 
   const options = {
     httpOnly: true,
-    secure: true,
+    secure: process.env.NODE_ENV === "production", // Ensure the cookie is only sent over HTTPS in production
+    sameSite: process.env.NODE_ENV === "production" ? "None" : "Lax", // 'None' for cross-site requests in production
+    domain:
+      process.env.NODE_ENV === "production"
+        ? "backend-v1-inky.vercel.app"
+        : undefined, // Set your domain in production
   };
 
   return res
@@ -113,12 +118,23 @@ const registerUser = asyncHandler(async (req, res) => {
     throw new ApiError(409, "User with email or username already exists");
   }
 
-  const avatarLocalPath = req.files?req.files.avatar?req.files.avatar[0]:null:null;
-  const coverImageLocalPath = req.files?req.files.coverImage?req.files.coverImage[0]:null:null;
+  const avatarLocalPath = req.files
+    ? req.files.avatar
+      ? req.files.avatar[0]
+      : null
+    : null;
+  const coverImageLocalPath = req.files
+    ? req.files.coverImage
+      ? req.files.coverImage[0]
+      : null
+    : null;
 
-
-  const avatar = avatarLocalPath?await uploadOnCloudinary(avatarLocalPath):null;
-  const coverImage = coverImageLocalPath?await uploadOnCloudinary(coverImageLocalPath):null;
+  const avatar = avatarLocalPath
+    ? await uploadOnCloudinary(avatarLocalPath)
+    : null;
+  const coverImage = coverImageLocalPath
+    ? await uploadOnCloudinary(coverImageLocalPath)
+    : null;
 
   const user = await User.create({
     fullName,
@@ -487,7 +503,6 @@ const getUserSubscribedVideos = asyncHandler(async (req, res) => {
       },
     },
   ]);
-
 
   return res
     .status(200)
