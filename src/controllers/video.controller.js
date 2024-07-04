@@ -11,15 +11,12 @@ const getAllVideos = asyncHandler(async (req, res) => {
 
   const user = await User.findOne({ username });
 
-  const userId = user._id;
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
 
-  const {
-    page = 1,
-    limit = 8,
-    query,
-    sortBy,
-    sortType = "ascending",
-  } = req.query;
+  const userId = user._id;
+  const { page = 1, limit = 8, sortType = "ascending" } = req.query;
 
   const videos = await Video.aggregate([
     {
@@ -29,26 +26,31 @@ const getAllVideos = asyncHandler(async (req, res) => {
     },
     {
       $sort: {
-        [sortBy]: sortType == "ascending" ? 1 : -1,
+        createdAt: -1,
       },
     },
     {
-      $skip: (page - 1) * 10,
+      $skip: (page - 1) * parseInt(limit),
     },
     {
       $limit: parseInt(limit),
     },
   ]);
 
+  const totalVideos = await Video.countDocuments({ owner: userId });
+
   if (!videos) {
-    throw new ApiError(404, "No videos Found");
+    throw new ApiError(404, "No videos found");
   }
+
+  const nextPage = page * limit < totalVideos ? parseInt(page) + 1 : null;
+
   return res
     .status(200)
     .json(
       new ApiResponse(
         200,
-        { videos, length: videos.length, nextPage: parseInt(page) + 1 },
+        { videos, length: videos.length, nextPage },
         "Videos fetched successfully"
       )
     );

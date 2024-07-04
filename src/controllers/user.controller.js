@@ -7,6 +7,7 @@ import { uploadOnCloudinary, deleteOnCloudinary } from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
+import mongooseAggregatePaginate from "mongoose-aggregate-paginate-v2";
 
 const genrateAccessAndRefreshTokens = async (userId) => {
   try {
@@ -434,7 +435,6 @@ const getWatchHistory = asyncHandler(async (req, res) => {
     .status(200)
     .json(new ApiResponse(200, user[0].watchHistory, "watch history fetched"));
 });
-
 const getUserSubscribedVideos = asyncHandler(async (req, res) => {
   const { page = 1, limit = 10 } = req.query;
 
@@ -451,14 +451,15 @@ const getUserSubscribedVideos = asyncHandler(async (req, res) => {
       },
     },
   ]);
-
+  
   if (!channelsSubscribed) {
     throw new ApiError(500, "Unable to fetch subscribed channel list");
   }
 
   const channelIds = channelsSubscribed.map((sub) => sub.channel);
 
-  const videos = await Video.aggregate([
+  // Aggregate query with pagination
+  const aggregateQuery = Video.aggregate([
     {
       $match: {
         owner: { $in: channelIds },
@@ -469,12 +470,6 @@ const getUserSubscribedVideos = asyncHandler(async (req, res) => {
       $sort: {
         createdAt: -1,
       },
-    },
-    {
-      $skip: (page - 1) * limit,
-    },
-    {
-      $limit: parseInt(limit),
     },
     {
       $lookup: {
@@ -504,9 +499,29 @@ const getUserSubscribedVideos = asyncHandler(async (req, res) => {
     },
   ]);
 
-  return res
-    .status(200)
-    .json(new ApiResponse(200, videos, "Videos fetched successfully"));
+  const options = {
+    page: parseInt(page, 10),
+    limit: parseInt(limit, 10),
+  };
+
+  const videos = await Video.aggregatePaginate(aggregateQuery, options);
+
+  if (!videos.docs.length) {
+    throw new ApiError(404, "No videos found");
+  }
+
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        videos: videos.docs,
+        total: videos.totalDocs,
+        length: videos.docs.length,
+        nextPage: videos.hasNextPage ? videos.nextPage : null,
+      },
+      "Videos fetched successfully"
+    )
+  );
 });
 
 export default getUserSubscribedVideos;
