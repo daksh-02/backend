@@ -133,4 +133,30 @@ const getLikedVideos = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, likedVideos, "List of liked Videos"));
 });
 
-export { toggleCommentLike, toggleTweetLike, toggleVideoLike, getLikedVideos };
+const userLiked = asyncHandler(async (req, res) => {
+  const { videoId } = req.params;
+
+  const exist = await Like.findOne({
+    video: videoId,
+    likedBy: req.user._id,
+  });
+
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        { isLiked: exist ? true : false },
+        "Liked by user or not"
+      )
+    );
+});
+
+export {
+  toggleCommentLike,
+  toggleTweetLike,
+  toggleVideoLike,
+  getLikedVideos,
+  userLiked,
+};

@@ -538,4 +538,5 @@ export {
   getUserChannelProfile,
   getWatchHistory,
   getUserSubscribedVideos,
+  genrateAccessAndRefreshTokens
 };

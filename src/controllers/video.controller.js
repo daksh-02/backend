@@ -1,10 +1,11 @@
-import mongoose, { isValidObjectId } from "mongoose";
+import mongoose, { Mongoose, isValidObjectId } from "mongoose";
 import { Video } from "../models/video.model.js";
 import { User } from "../models/user.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { uploadOnCloudinary, deleteOnCloudinary } from "../utils/cloudinary.js";
+import { Like } from "../models/like.model.js";
 
 const getAllVideos = asyncHandler(async (req, res) => {
   const { username } = req.params;
@@ -105,17 +106,34 @@ const publishAVideo = asyncHandler(async (req, res) => {
 
 const getVideoById = asyncHandler(async (req, res) => {
   const { videoId } = req.params;
-  //TODO: get video by id
-  console.log(videoId);
-  const video = await Video.findById(videoId);
 
-  if (!video) {
-    throw new ApiError(400, "No such Video exist");
+  const vid = await Video.findById(videoId);
+
+  if (!vid) {
+    throw new ApiError(400, "No such Video exists");
   }
 
+  // Increase the view count by 1
+  vid.views += 1;
+  await vid.save();
+
+  const owner = await User.findById(vid.owner);
+
+  if (!owner) {
+    throw new ApiError(400, "No such Owner exists");
+  }
+
+  const video = {
+    ...vid.toObject(),
+    ownerDetails: {
+      username: owner.username,
+      avatar: owner.avatar,
+    },
+  };
+
   return res
-    .status(201)
-    .json(new ApiResponse(200, video, "Video retrived successfully"));
+    .status(200)
+    .json(new ApiResponse(200, video, "Video retrieved successfully"));
 });
 
 const updateVideo = asyncHandler(async (req, res) => {
@@ -188,6 +206,27 @@ const togglePublishStatus = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, video, "video status toggled"));
 });
 
+const getVideoLikes = asyncHandler(async (req, res) => {
+  const { videoId } = req.params;
+
+  const likeCount = await Like.aggregate([
+    {
+      $match: {
+        video: new mongoose.Types.ObjectId(videoId),
+      },
+    },
+    {
+      $count: "likeCount",
+    },
+  ]);
+
+  const totalLikes = likeCount.length > 0 ? likeCount[0].likeCount : 0;
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, { totalLikes }, "Like counts"));
+});
+
 export {
   getAllVideos,
   publishAVideo,
@@ -195,4 +234,5 @@ export {
   updateVideo,
   deleteVideo,
   togglePublishStatus,
+  getVideoLikes,
 };
