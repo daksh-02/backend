@@ -17,15 +17,7 @@ export const verifyJWT = asyncHandler(async (req, res, next) => {
       const decodedToken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
       // console.log("Access token verified:", decodedToken);
 
-      const user = await User.findById(decodedToken?._id).select(
-        "-password -refreshToken"
-      );
-
-      if (!user) {
-        throw new ApiError(401, "Invalid Access Token: User not found");
-      }
-
-      req.user = user;
+      req.user = decodedToken;
       return next();
     } catch (error) {
       if (error.message !== "jwt expired") {
