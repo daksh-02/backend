@@ -13,20 +13,7 @@ import { upload } from "../middlewares/multer.middleware.js";
 
 const router = Router();
 
-router.route("/").post(
-  verifyJWT,
-  upload.fields([
-    {
-      name: "videoFile",
-      maxCount: 1,
-    },
-    {
-      name: "thumbNail",
-      maxCount: 1,
-    },
-  ]),
-  publishAVideo
-);
+router.route("/").post(verifyJWT, publishAVideo);
 
 router.route("/allVideos/:username").get(getAllVideos);
 
@@ -36,7 +23,7 @@ router
   .delete(verifyJWT, deleteVideo)
   .patch(verifyJWT, upload.single("thumbnail"), updateVideo);
 
-router.route("/likes/:videoId").get(verifyJWT,getVideoLikes);
+router.route("/likes/:videoId").get(verifyJWT, getVideoLikes);
 
 router.route("/toggle/publish/:videoId").patch(verifyJWT, togglePublishStatus);
 

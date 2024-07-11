@@ -58,26 +58,14 @@ const getAllVideos = asyncHandler(async (req, res) => {
 });
 
 const publishAVideo = asyncHandler(async (req, res) => {
-  const { title, description } = req.body;
+  const { title, description, videoFile, thumbNail } = req.body;
   // TODO: get video, upload to cloudinary, create video
 
-  if (!title && !description) {
+  console.log(req.body);
+
+  if (!title || !description || !videoFile || !thumbNail) {
     throw new ApiError(400, "Title or Description might be missing");
   }
-
-  const thumbNAilPath = req.files?.thumbNail[0]?.path;
-  const videoFilePath = req.files?.videoFile[0]?.path;
-
-  if (!thumbNAilPath) {
-    throw new ApiError(400, "Thumbnail is required");
-  }
-
-  if (!videoFilePath) {
-    throw new ApiError(400, "Video is required");
-  }
-
-  const thumbNail = await uploadOnCloudinary(thumbNAilPath);
-  const videoFile = await uploadOnCloudinary(videoFilePath);
 
   const video = await Video.create({
     videoFile: {
@@ -92,7 +80,6 @@ const publishAVideo = asyncHandler(async (req, res) => {
     description,
     isPublished: true,
     owner: req.user._id,
-    duration: videoFile?.duration,
   });
 
   if (!video) {
