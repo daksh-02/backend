@@ -8,7 +8,7 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 const toggleSubscription = asyncHandler(async (req, res) => {
   const { channelId } = req.params;
 
-  const channel = await User.findOne({username : channelId});
+  const channel = await User.findOne({ username: channelId });
   // TODO: toggle subscription
   const existingSubscription = await Subscription.findOne({
     subscriber: req.user._id,

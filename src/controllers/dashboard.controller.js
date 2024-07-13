@@ -6,6 +6,7 @@ import { Like } from "../models/like.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import mongooseAggregatePaginate from "mongoose-aggregate-paginate-v2";
 
 const getChannelStats = asyncHandler(async (req, res) => {
   // TODO: Get the channel stats like total video views, total subscribers, total videos, total likes etc.
@@ -285,7 +286,93 @@ const getChannelInfo = asyncHandler(async (req, res) => {
 
   return res
     .status(200)
-    .json(new ApiResponse(200, updatedUser, "Channel info fetched successfully"));
+    .json(
+      new ApiResponse(200, updatedUser, "Channel info fetched successfully")
+    );
 });
 
-export { getChannelStats, getChannelVideos, getChannelInfo };
+const getUsers = asyncHandler(async (req, res) => {
+  const { match } = req.params;
+  const { page, limit } = req.query;
+
+  const regex = new RegExp(`^${match}`, "i");
+
+  const aggregate = User.aggregate([
+    {
+      $match: {
+        username: regex,
+      },
+    },
+    {
+      $addFields: {
+        matchLength: {
+          $strLenCP: {
+            $substrCP: ["$username", 0, match.length],
+          },
+        },
+      },
+    },
+    {
+      $sort: {
+        matchLength: -1,
+        username: 1,
+      },
+    },
+    {
+      $project: {
+        username: 1,
+        fullName: 1,
+        _id: 1,
+        avatar: 1,
+      },
+    },
+  ]);
+
+  const options = {
+    page: parseInt(page, 10) || 1,
+    limit: parseInt(limit, 10) || 10,
+  };
+
+  const users = await User.aggregatePaginate(aggregate, options);
+
+  const usersWithDetails = await Promise.all(
+    users.docs.map(async (curUser) => {
+      const [subscriberCount, isSubscribed] = await Promise.all([
+        Subscription.countDocuments({ channel: curUser._id }),
+        Subscription.exists({ channel: curUser._id, subscriber: req.user._id }),
+      ]);
+
+      const recentVideos = await Video.find({ owner: curUser._id })
+        .sort({ createdAt: -1 })
+        .limit(2);
+
+      return {
+        ...curUser,
+        subscriberCount,
+        isSubscribed: !!isSubscribed,
+        recentVideos,
+      };
+    })
+  );
+
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        docs: usersWithDetails,
+        totalDocs: users.totalDocs,
+        limit: users.limit,
+        page: users.page,
+        totalPages: users.totalPages,
+        pagingCounter: users.pagingCounter,
+        hasPrevPage: users.hasPrevPage,
+        hasNextPage: users.hasNextPage,
+        prevPage: users.prevPage,
+        nextPage: users.nextPage,
+      },
+      "Fetched users"
+    )
+  );
+});
+
+export { getChannelStats, getChannelVideos, getChannelInfo, getUsers };
