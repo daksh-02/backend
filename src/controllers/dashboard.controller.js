@@ -342,7 +342,10 @@ const getUsers = asyncHandler(async (req, res) => {
         Subscription.exists({ channel: curUser._id, subscriber: req.user._id }),
       ]);
 
-      const recentVideos = await Video.find({ owner: curUser._id })
+      const recentVideos = await Video.find({
+        owner: curUser._id,
+        isPublished: true,
+      })
         .sort({ createdAt: -1 })
         .limit(2);
 

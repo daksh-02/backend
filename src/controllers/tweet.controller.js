@@ -70,6 +70,11 @@ const getUserTweets = asyncHandler(async (req, res) => {
       },
     },
     {
+      $sort: {
+        createdAt: -1,
+      },
+    },
+    {
       $project: {
         likes: 0,
       },
