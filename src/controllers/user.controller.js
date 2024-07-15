@@ -62,7 +62,7 @@ const loginUser = asyncHandler(async (req, res) => {
     sameSite: process.env.NODE_ENV === "production" ? "None" : "Lax", // 'None' for cross-site requests in production
     domain:
       process.env.NODE_ENV === "production"
-        ? "backend-v1-inky.vercel.app"
+        ? "backend-v2-inky.vercel.app"
         : undefined, // Set your domain in production
   };
 
