@@ -3,11 +3,11 @@ import { Playlist } from "../models/playlist.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { User } from "../models/user.model.js";
 
 const createPlaylist = asyncHandler(async (req, res) => {
-  const { name, description } = req.body;
+  const { name, description = "" } = req.body;
 
-  //TODO: create playlist
   const playlist = await Playlist.create({
     name,
     description,
@@ -27,21 +27,12 @@ const createPlaylist = asyncHandler(async (req, res) => {
 });
 
 const getUserPlaylists = asyncHandler(async (req, res) => {
-  const { userId } = req.params;
-  //TODO: get user playlists
+  const { username } = req.params;
 
-  /*
-    const userPlaylists = await Playlist.aggregate([
-      {
-        $match: {
-          owner: new mongoose.Types.ObjectId(userId),
-        },
-      },
-    ]);
-*/
+  const user = await User.findOne({ username });
 
   const userPlaylists = await Playlist.find({
-    owner: new mongoose.Types.ObjectId(userId),
+    owner: new mongoose.Types.ObjectId(user._id),
   });
 
   if (!userPlaylists) {
@@ -155,6 +146,27 @@ const updatePlaylist = asyncHandler(async (req, res) => {
     .json(new ApiResponse(201, playlist, "Playlist updated"));
 });
 
+const checkPlayListInVideo = asyncHandler(async (req, res) => {
+  const { videoId, playlistId } = req.params;
+
+  const exists = await Playlist.findOne({
+    _id: playlistId,
+    videos: videoId,
+  });
+
+  return res
+    .status(201)
+    .json(
+      new ApiResponse(
+        201,
+        { inPlaylist: exists ? true : false },
+        exists
+          ? "Video does exist in playlist"
+          : "Video doesn't exist in playlist"
+      )
+    );
+});
+
 export {
   createPlaylist,
   getUserPlaylists,
@@ -163,4 +175,5 @@ export {
   removeVideoFromPlaylist,
   deletePlaylist,
   updatePlaylist,
+  checkPlayListInVideo
 };
