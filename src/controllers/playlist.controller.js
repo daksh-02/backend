@@ -33,7 +33,7 @@ const getUserPlaylists = asyncHandler(async (req, res) => {
 
   const userPlaylists = await Playlist.find({
     owner: new mongoose.Types.ObjectId(user._id),
-  });
+  }).sort({ createdAt: -1 });
 
   if (!userPlaylists) {
     throw new ApiError(500, "Somethimg went wrong while fetching userPlaylist");
@@ -175,5 +175,5 @@ export {
   removeVideoFromPlaylist,
   deletePlaylist,
   updatePlaylist,
-  checkPlayListInVideo
+  checkPlayListInVideo,
 };
