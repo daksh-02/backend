@@ -113,24 +113,73 @@ const toggleTweetLike = asyncHandler(async (req, res) => {
 });
 
 const getLikedVideos = asyncHandler(async (req, res) => {
-  //TODO: get all liked videos
+  const { page = 1, limit = 6 } = req.query; // Get pagination parameters from query
 
-  const likedVideos = await Like.aggregate([
+  const aggregateQuery = Like.aggregate([
     {
       $match: {
         likedBy: new mongoose.Types.ObjectId(req.user._id),
         video: { $exists: true, $ne: null },
       },
     },
+    {
+      $lookup: {
+        from: "videos",
+        localField: "video",
+        foreignField: "_id",
+        as: "videoDetails",
+      },
+    },
+    {
+      $unwind: "$videoDetails",
+    },
+    {
+      $lookup: {
+        from: "users",
+        localField: "likedBy",
+        foreignField: "_id",
+        as: "ownerDetails",
+      },
+    },
+    {
+      $unwind: "$ownerDetails",
+    },
+    {
+      $sort: {
+        createdAt: -1,
+      },
+    },
+    {
+      $project: {
+        _id: 0,
+        video: {
+          _id: "$videoDetails._id",
+          title: "$videoDetails.title",
+          description: "$videoDetails.description",
+          thumbnail: "$videoDetails.thumbnail",
+          createdAt: "$videoDetails.createdAt",
+          views: "$videoDetails.views",
+          ownerDetails: {
+            username: "$ownerDetails.username",
+            avatar: "$ownerDetails.avatar",
+          },
+        },
+      },
+    },
   ]);
 
-  if (!likedVideos) {
+  const options = {
+    page: parseInt(page, 10),
+    limit: parseInt(limit, 10),
+  };
+
+  const result = await Like.aggregatePaginate(aggregateQuery, options);
+
+  if (!result) {
     throw new ApiError(500, "Something went wrong");
   }
 
-  return res
-    .status(200)
-    .json(new ApiResponse(200, likedVideos, "List of liked Videos"));
+  return res.status(200).json(new ApiResponse(200, result, "List of liked Videos"));
 });
 
 const userLiked = asyncHandler(async (req, res) => {
@@ -140,7 +189,6 @@ const userLiked = asyncHandler(async (req, res) => {
     video: videoId,
     likedBy: req.user._id,
   });
-
 
   return res
     .status(200)
