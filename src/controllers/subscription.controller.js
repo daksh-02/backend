@@ -42,30 +42,56 @@ const toggleSubscription = asyncHandler(async (req, res) => {
 
 // controller to return subscriber list of a channel
 const getUserChannelSubscribers = asyncHandler(async (req, res) => {
-  const { subscriberId } = req.params;
-  if (!subscriberId) {
-    throw new ApiError(400, "channelId is Requitred!!");
-  }
+  const { username } = req.params;
   try {
-    const subscribers = await Subscription.aggregate([
+    const user = await User.findOne({ username });
+
+    const aggregate = await Subscription.aggregate([
       {
         $match: {
-          channel: new mongoose.Types.ObjectId(subscriberId),
+          channel: new mongoose.Types.ObjectId(user._id),
         },
       },
       {
-        $group: {
-          _id: "channel",
-          subscribers: { $push: "$subscriber" },
+        $lookup: {
+          from: "users",
+          localField: "subscriber",
+          foreignField: "_id",
+          as: "sub",
+        },
+      },
+      {
+        $unwind: {
+          path: "$sub",
         },
       },
       {
         $project: {
-          _id: 0,
-          subscribers: 1,
+          _id: "$sub._id",
+          username: "$sub.username",
+          avatar: "$sub.avatar",
         },
       },
     ]);
+
+    const subscribers = await Promise.all(
+      aggregate.map(async (subscriber) => {
+        const subCount = await Subscription.countDocuments({
+          channel: subscriber._id,
+        });
+        const isSubscribed = await Subscription.exists({
+          subscriber: req.user._id,
+          channel: subscriber._id,
+        });
+        return {
+          ...subscriber,
+          subCount,
+          isSubscribed: !!isSubscribed,
+        };
+      })
+    );
+
+    subscribers.sort((a, b) => b.subCount - a.subCount);
 
     if (!subscribers || subscribers.length === 0) {
       return res
