@@ -173,6 +173,38 @@ const getChannelStats = asyncHandler(async (req, res) => {
     },
   ]);
 
+  const aggregate = await Video.aggregate([
+    {
+      $match: {
+        owner: new mongoose.Types.ObjectId(req.user._id),
+      },
+    },
+    {
+      $project: {
+        createdAt: 1,
+        views: 1,
+        title: 1,
+        isPublished: 1,
+      },
+    },
+    {
+      $sort: {
+        views: -1,
+      },
+    },
+  ]);
+
+  const videos = await Promise.all(
+    aggregate.map(async (video) => {
+      const likes = await Like.countDocuments({ video: video._id });
+
+      return {
+        ...video,
+        likes,
+      };
+    })
+  );
+
   if (!videoViews || !likesCount || !subscriberCount) {
     throw new ApiError(500, "unable to fetch data");
   }
@@ -200,6 +232,7 @@ const getChannelStats = asyncHandler(async (req, res) => {
           subscribedChannelsCount.length === 0
             ? 0
             : subscribedChannelsCount[0].totalSubscribedChannels,
+        videos,
       },
       "Video views obtained"
     )
