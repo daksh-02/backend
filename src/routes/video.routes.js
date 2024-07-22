@@ -21,7 +21,7 @@ router
   .route("/:videoId")
   .get(getVideoById)
   .delete(verifyJWT, deleteVideo)
-  .patch(verifyJWT, upload.single("thumbnail"), updateVideo);
+  .patch(verifyJWT, updateVideo);
 
 router.route("/likes/:videoId").get(verifyJWT, getVideoLikes);
 

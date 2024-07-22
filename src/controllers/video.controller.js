@@ -133,21 +133,12 @@ const updateVideo = asyncHandler(async (req, res) => {
     throw new ApiError(400, "No such Video exist");
   }
 
-  const { title, description } = req.body;
-  const thumbNAilPath = req.file?.path;
+  const { title, description, thumbnail } = req.body;
 
-  if (!thumbNAilPath) {
-    throw new ApiError(400, "Thumbnail is required");
+  if (thumbnail) {
+    await deleteOnCloudinary(video.thumbnail);
+    video.thumbnail = thumbnail;
   }
-
-  const thumbNail = await uploadOnCloudinary(thumbNAilPath);
-  if (!thumbNail) {
-    throw new ApiError(400, "Thumbnail is required");
-  }
-
-  await deleteOnCloudinary(video.thumbnail);
-
-  video.thumbnail = thumbNail.url;
   if (title) video.title = title;
   if (description) video.description = description;
 
