@@ -5,6 +5,7 @@ import { ApiError } from "../utils/ApiError.js";
 import { Like } from "../models/like.model.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { User } from "../models/user.model.js";
 
 const getVideoComments = asyncHandler(async (req, res) => {
   const { videoId } = req.params;
@@ -37,6 +38,12 @@ const getVideoComments = asyncHandler(async (req, res) => {
     {
       $unwind: "$ownerDetails",
     },
+    {
+      $sort: {
+        createdAt: -1,
+      },
+    },
+
     {
       $project: {
         content: 1,
@@ -91,11 +98,8 @@ const getVideoComments = asyncHandler(async (req, res) => {
 const addComment = asyncHandler(async (req, res) => {
   // TODO: add a comment to a video
   const { videoId } = req.params;
-  const exists = await Video.exists({ _id: videoId });
 
-  if (!exists) {
-    throw new ApiError(404, "No such video Exists");
-  }
+  const user = await User.findById(req.user._id);
 
   const { content } = req.body;
 
@@ -118,9 +122,9 @@ const addComment = asyncHandler(async (req, res) => {
   comment.likeCount = 0;
   comment.isLiked = false;
   comment.ownerDetails = {
-    username: req.user.username,
-    avatar: req.user.avatar,
-    fullname: req.user.fullName,
+    username: user.username,
+    avatar: user.avatar,
+    fullname: user.fullName,
   };
 
   return res

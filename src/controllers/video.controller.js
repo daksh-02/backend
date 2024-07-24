@@ -9,6 +9,12 @@ import { Like } from "../models/like.model.js";
 
 const getAllVideos = asyncHandler(async (req, res) => {
   const { username } = req.params;
+  const {
+    page = 1,
+    limit = 8,
+    sortType = "ascending",
+    isOwnProfile,
+  } = req.query;
 
   const user = await User.findOne({ username });
 
@@ -17,14 +23,19 @@ const getAllVideos = asyncHandler(async (req, res) => {
   }
 
   const userId = user._id;
-  const { page = 1, limit = 8, sortType = "ascending" } = req.query;
+
+  // Determine the match criteria based on the `isOwnProfile` flag
+  const matchCriteria = {
+    owner: new mongoose.Types.ObjectId(userId),
+  };
+
+  if (!isOwnProfile) {
+    matchCriteria.isPublished = true;
+  }
 
   const videos = await Video.aggregate([
     {
-      $match: {
-        owner: new mongoose.Types.ObjectId(userId),
-        isPublished: true,
-      },
+      $match: matchCriteria,
     },
     {
       $sort: {
@@ -39,7 +50,7 @@ const getAllVideos = asyncHandler(async (req, res) => {
     },
   ]);
 
-  const totalVideos = await Video.countDocuments({ owner: userId });
+  const totalVideos = await Video.countDocuments(matchCriteria);
 
   if (!videos) {
     throw new ApiError(404, "No videos found");

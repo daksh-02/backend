@@ -28,24 +28,24 @@ const genrateAccessAndRefreshTokens = async (userId) => {
 };
 
 const loginUser = asyncHandler(async (req, res) => {
-  const { email, username, password } = req.body;
-
-  if (!email && !username) {
-    throw new ApiError(400, "username or password is required");
-  }
+  const { username, password } = req.body;
 
   const user = await User.findOne({
-    $or: [{ username }, { email }],
+    username,
   });
 
   if (!user) {
-    throw new ApiError(404, "user not found");
+    return res
+      .status(400)
+      .json(new ApiResponse(400, { message: "Invalid Username" }, "faliure"));
   }
 
   const isPasswordValid = await user.isPasswordCorrect(password);
 
   if (!isPasswordValid) {
-    throw new ApiError(401, "Incorrect password");
+    return res
+      .status(400)
+      .json(new ApiResponse(400, { message: "Incorret Password" }, "faliure"));
   }
 
   const { accessToken, refreshToken } = await genrateAccessAndRefreshTokens(
@@ -104,46 +104,30 @@ const logoutUser = asyncHandler(async (req, res) => {
 
 const registerUser = asyncHandler(async (req, res) => {
   const { fullName, email, username, password } = req.body;
-  console.log(req.files);
-  if (
-    [fullName, email, username, password].some((field) => field?.trim() === "")
-  ) {
-    throw new ApiError(400, "All fields are required");
-  }
 
   const existedUser = await User.findOne({
     $or: [{ username }, { email }],
   });
 
   if (existedUser) {
-    throw new ApiError(409, "User with email or username already exists");
+    res
+      .status(400)
+      .json(
+        new ApiResponse(
+          400,
+          { message: "User with email or username already exists" },
+          "Fail"
+        )
+      );
   }
-
-  const avatarLocalPath = req.files
-    ? req.files.avatar
-      ? req.files.avatar[0]
-      : null
-    : null;
-  const coverImageLocalPath = req.files
-    ? req.files.coverImage
-      ? req.files.coverImage[0]
-      : null
-    : null;
-
-  const avatar = avatarLocalPath
-    ? await uploadOnCloudinary(avatarLocalPath)
-    : null;
-  const coverImage = coverImageLocalPath
-    ? await uploadOnCloudinary(coverImageLocalPath)
-    : null;
 
   const user = await User.create({
     fullName,
-    avatar: avatar?.url || "",
-    coverImage: coverImage?.url || "",
+    avatar: "",
+    coverImage: "",
     email,
     password,
-    username: username.toLowerCase(),
+    username: username,
   });
 
   const createdUser = await User.findById(user._id).select(
@@ -273,7 +257,7 @@ const updateAccountDetails = asyncHandler(async (req, res) => {
 
 const updateAvatarImage = asyncHandler(async (req, res) => {
   const { avatar } = req.body;
-  
+
   const user = await User.findById(req.user._id).select(
     "-password -refreshToken"
   );
