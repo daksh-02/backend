@@ -29,7 +29,7 @@ const genrateAccessAndRefreshTokens = async (userId) => {
 
 const loginUser = asyncHandler(async (req, res) => {
   const { email, username, password } = req.body;
-  
+
   if (!email && !username) {
     throw new ApiError(400, "username or password is required");
   }
@@ -213,9 +213,12 @@ const changeCurrentPassword = asyncHandler(async (req, res) => {
   const user = await User.findById(req.user?._id);
 
   const isPasswordCorrect = await user.isPasswordCorrect(oldPassword);
-
   if (!isPasswordCorrect) {
-    throw new ApiError(400, "Invalid old password");
+    res
+      .status(400)
+      .json(
+        new ApiResponse(400, { message: "Old password is incorrect" }, "Fail")
+      );
   }
 
   user.password = newPassword;
@@ -233,22 +236,33 @@ const getCurrentUser = asyncHandler(async (req, res) => {
 });
 
 const updateAccountDetails = asyncHandler(async (req, res) => {
-  const { fullName, email } = req.body;
+  const { fullName, email, username } = req.body;
 
-  if (!fullName || !email) {
-    throw new ApiError(400, "All fields are required");
+  const existsUsername = await User.exists({ username });
+
+  const existsEmail = await User.exists({ email });
+
+  if (existsUsername) {
+    return res
+      .status(400)
+      .json(new ApiResponse(400, { message: "Username already exists" }));
   }
 
-  const user = await User.findByIdAndUpdate(
-    req.user?._id,
-    {
-      $set: {
-        fullName,
-        email,
-      },
-    },
-    { new: true }
-  ).select("-password");
+  if (existsEmail) {
+    return res
+      .status(400)
+      .json(new ApiResponse(400, { message: "Email already exists" }));
+  }
+
+  const user = await User.findById(req.user._id).select(
+    "-password -refreshToken"
+  );
+
+  if (fullName) user.fullName = fullName;
+  if (email) user.email = email;
+  if (username) user.username = username;
+
+  await user.save();
 
   return res
     .status(200)
@@ -258,29 +272,15 @@ const updateAccountDetails = asyncHandler(async (req, res) => {
 });
 
 const updateAvatarImage = asyncHandler(async (req, res) => {
-  const avatarLocalPath = req.file?.path;
+  const { avatar } = req.body;
+  
+  const user = await User.findById(req.user._id).select(
+    "-password -refreshToken"
+  );
 
-  if (!avatarLocalPath) {
-    throw new ApiError(400, "Avatar file is missing");
-  }
+  user.avatar = avatar;
 
-  const avatar = await uploadOnCloudinary(avatarLocalPath);
-
-  if (!avatar.url) {
-    throw new ApiError(400, "Error while uploading on avatar");
-  }
-
-  await deleteOnCloudinary(req.user.avatar);
-
-  const user = await User.findByIdAndUpdate(
-    req.user?._id,
-    {
-      $set: {
-        avatar: avatar.url,
-      },
-    },
-    { new: true }
-  ).select("-password");
+  await user.save();
 
   return res
     .status(200)
@@ -288,29 +288,15 @@ const updateAvatarImage = asyncHandler(async (req, res) => {
 });
 
 const updateUserCoverImage = asyncHandler(async (req, res) => {
-  const coverImageLocalPath = req.file?.path;
+  const { coverImage } = req.body;
 
-  if (!coverImageLocalPath) {
-    throw new ApiError(400, "Cover image file is missing");
-  }
+  const user = await User.findById(req.user._id).select(
+    "-password -refreshToken"
+  );
 
-  const coverImage = await uploadOnCloudinary(coverImageLocalPath);
+  user.coverImage = coverImage.url;
 
-  if (!coverImage.url) {
-    throw new ApiError(400, "Error while uploading on avatar");
-  }
-
-  await deleteOnCloudinary(req.user.coverImage);
-
-  const user = await User.findByIdAndUpdate(
-    req.user?._id,
-    {
-      $set: {
-        coverImage: coverImage.url,
-      },
-    },
-    { new: true }
-  ).select("-password");
+  await user.save();
 
   return res
     .status(200)
@@ -451,7 +437,7 @@ const getUserSubscribedVideos = asyncHandler(async (req, res) => {
       },
     },
   ]);
-  
+
   if (!channelsSubscribed) {
     throw new ApiError(500, "Unable to fetch subscribed channel list");
   }
@@ -538,5 +524,5 @@ export {
   getUserChannelProfile,
   getWatchHistory,
   getUserSubscribedVideos,
-  genrateAccessAndRefreshTokens
+  genrateAccessAndRefreshTokens,
 };
