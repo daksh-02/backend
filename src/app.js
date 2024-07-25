@@ -6,7 +6,7 @@ const app = express();
 
 app.use(
   cors({
-    origin: "https://videotube-frontend-v2.vercel.app",
+    origin: "https://clipconnect.vercel.app",
     // origin: true,
     credentials: true,
   })
